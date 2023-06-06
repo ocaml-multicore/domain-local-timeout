@@ -1,0 +1,5 @@
+(mdx
+ (package domain-local-timeout)
+ (deps
+  (package domain-local-timeout))
+ (files README.md))
