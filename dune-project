@@ -10,6 +10,7 @@
  (synopsis "A scheduler independent timeout mechanism")
  (depends
   (ocaml (>= 5.0))
+  (psq (>= 0.2.1))
   (mdx (and (>= 1.10.0) :with-test))
   (domain-local-await (and (>= 0.1.0) :with-test))))
 (using mdx 0.2)

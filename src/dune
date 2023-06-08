@@ -1,3 +1,4 @@
 (library
  (name Domain_local_timeout)
- (public_name domain-local-timeout))
+ (public_name domain-local-timeout)
+ (libraries psq))

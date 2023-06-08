@@ -9,6 +9,7 @@ bug-reports: "https://github.com/ocaml-multicore/domain-local-timeout/issues"
 depends: [
   "dune" {>= "3.3"}
   "ocaml" {>= "5.0"}
+  "psq" {>= "0.2.1"}
   "mdx" {>= "1.10.0" & with-test}
   "domain-local-await" {>= "0.1.0" & with-test}
   "odoc" {with-doc}

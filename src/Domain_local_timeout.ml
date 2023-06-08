@@ -36,13 +36,18 @@ let has_system () = Atomic.get system_global != system_unimplemented
 
 (* *)
 
-type entry = { time : float; mutable action : unit -> unit }
+module Entry = struct
+  type t = { time : float; action : unit -> unit }
+
+  let compare l r = Float.compare l.time r.time
+end
+
+module Q = Psq.Make (Int) (Entry)
 
 let system_on_current_domain () =
   let ((module Thread) : thread), ((module Unix) : unix) =
     Atomic.get system_global
   in
-  (* TODO: Efficient priority queue. *)
   let running = ref true in
   let needs_wakeup = ref true in
   let reading, writing = Unix.pipe () in
@@ -53,7 +58,13 @@ let system_on_current_domain () =
       assert (n = 1)
     end
   in
-  let timeouts = Atomic.make [] in
+  let counter = ref 0 in
+  let next_id () =
+    let id = !counter + 1 in
+    counter := id;
+    id
+  in
+  let timeouts = Atomic.make Q.empty in
   let rec timeout_thread next =
     if !running then begin
       needs_wakeup := true;
@@ -63,22 +74,19 @@ let system_on_current_domain () =
           assert (n = 1)
       | _, _, _ -> ());
       let rec wakeup_loop () =
-        match Atomic.get timeouts with
-        | [] -> ()
-        | t :: ts as tts ->
+        let ts_old = Atomic.get timeouts in
+        match Q.pop ts_old with
+        | None -> ()
+        | Some ((_, t), ts) ->
             if t.time <= Unix.gettimeofday () then begin
-              if Atomic.compare_and_set timeouts tts ts then begin
-                let action = t.action in
-                t.action <- Fun.id;
-                action ()
-              end;
+              if Atomic.compare_and_set timeouts ts_old ts then t.action ();
               wakeup_loop ()
             end
       in
       wakeup_loop ();
-      match Atomic.get timeouts with
-      | [] -> timeout_thread (-1.0)
-      | t :: _ ->
+      match Q.min (Atomic.get timeouts) with
+      | None -> timeout_thread (-1.0)
+      | Some (_, t) ->
           timeout_thread (Float.max 0.0 (t.time -. Unix.gettimeofday ()))
     end
   in
@@ -90,27 +98,18 @@ let system_on_current_domain () =
   in
   let set_timeoutf seconds action =
     let time = Unix.gettimeofday () +. seconds in
-    let e' = { time; action } in
-    let[@tail_mod_cons] rec insert = function
-      | [] -> [ e' ]
-      | e :: es as ees ->
-          if e.time <= e'.time then e :: insert es else e' :: ees
-    in
+    let e' = Entry.{ time; action } in
+    let id = next_id () in
     let rec insert_loop () =
       let ts = Atomic.get timeouts in
-      let ts' = insert ts in
+      let ts' = Q.add id e' ts in
       if not (Atomic.compare_and_set timeouts ts ts') then insert_loop ()
-      else match ts' with e :: _ -> e == e' | _ -> false
+      else match Q.min ts' with Some (id', _) -> id = id' | None -> false
     in
     if insert_loop () then wakeup ();
-    let[@tail_mod_cons] rec remove e' = function
-      | [] -> []
-      | e :: es -> if e == e' then es else e :: remove e' es
-    in
     let rec cancel () =
-      e'.action <- Fun.id;
       let ts = Atomic.get timeouts in
-      let ts' = remove e' ts in
+      let ts' = Q.remove id ts in
       if not (Atomic.compare_and_set timeouts ts ts') then cancel ()
     in
     cancel
