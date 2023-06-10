@@ -2,8 +2,11 @@ let () = Domain_local_timeout.set_system (module Thread) (module Unix)
 
 let sleepf seconds =
   let t = Domain_local_await.prepare_for_await () in
-  let _ = Domain_local_timeout.set_timeoutf seconds t.release in
-  t.await ()
+  let cancel = Domain_local_timeout.set_timeoutf seconds t.release in
+  try t.await ()
+  with exn ->
+    (cancel :> unit -> unit) ();
+    raise exn
 
 let () =
   let result = ref "" in
