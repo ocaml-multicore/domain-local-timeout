@@ -14,7 +14,7 @@ let system_unimplemented =
     let create = unimplemented
     let join = unimplemented
   end in
-  ( ((module Thread) : thread),
+  ( ((module Thread) : (module Thread)),
     let module Unix = struct
       type file_descr
 
@@ -24,7 +24,7 @@ let system_unimplemented =
       let pipe ?cloexec:_ = unimplemented
       let select = unimplemented
     end in
-    ((module Unix) : unix) )
+    ((module Unix) : (module Unix)) )
 
 let system_global = Atomic.make system_unimplemented
 
@@ -45,7 +45,7 @@ end
 module Q = Psq.Make (Int) (Entry)
 
 let system_on_current_domain () =
-  let ((module Thread) : thread), ((module Unix) : unix) =
+  let ((module Thread) : (module Thread)), ((module Unix) : (module Unix)) =
     Atomic.get system_global
   in
   let running = ref true in

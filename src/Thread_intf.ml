@@ -8,6 +8,3 @@ module type Thread = sig
   val create : ('a -> 'b) -> 'a -> t
   val join : t -> unit
 end
-
-type thread = (module Thread)
-(** Type alias for a first-class {!Thread} module. *)

@@ -16,6 +16,3 @@ module type Unix = sig
     float ->
     file_descr list * file_descr list * file_descr list
 end
-
-type unix = (module Unix)
-(** Type alias for a first-class {!Unix} module. *)

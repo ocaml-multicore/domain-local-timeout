@@ -31,7 +31,7 @@ val using :
 include module type of Thread_intf
 include module type of Unix_intf
 
-val set_system : thread -> unix -> unit
+val set_system : (module Thread) -> (module Unix) -> unit
 (** [set_system (module Thread) (module Unix)] sets the system libraries to use
     for a default {!set_timeoutf} implementation.  This operation has an effect
     only on first time and, if needed, should be called from application code on
