@@ -18,7 +18,7 @@ let system_unimplemented =
     let module Unix = struct
       type file_descr
 
-      let gettimeofday = unimplemented
+      let close = unimplemented
       let read = unimplemented
       let write = unimplemented
       let pipe ?cloexec:_ = unimplemented
@@ -37,9 +37,9 @@ let has_system () = Atomic.get system_global != system_unimplemented
 (* *)
 
 module Entry = struct
-  type t = { time : float; action : unit -> unit }
+  type t = { time : Mtime.span; action : unit -> unit }
 
-  let compare l r = Float.compare l.time r.time
+  let compare l r = Mtime.Span.compare l.time r.time
 end
 
 module Q = Psq.Make (Int) (Entry)
@@ -48,11 +48,13 @@ let system_on_current_domain () =
   let ((module Thread) : (module Thread)), ((module Unix) : (module Unix)) =
     Atomic.get system_global
   in
+  let error = ref None in
+  let check () = match !error with None -> () | Some exn -> raise exn in
   let running = ref true in
   let needs_wakeup = ref true in
   let reading, writing = Unix.pipe () in
   let wakeup () =
-    if !needs_wakeup then begin
+    if !needs_wakeup && !error == None then begin
       needs_wakeup := false;
       let n = Unix.write writing (Bytes.create 1) 0 1 in
       assert (n = 1)
@@ -73,46 +75,59 @@ let system_on_current_domain () =
           let n = Unix.read reading (Bytes.create 1) 0 1 in
           assert (n = 1)
       | _, _, _ -> ());
-      let rec wakeup_loop () =
+      let rec loop () =
         let ts_old = Atomic.get timeouts in
         match Q.pop ts_old with
-        | None -> ()
+        | None -> -1.0
         | Some ((_, t), ts) ->
-            if t.time <= Unix.gettimeofday () then begin
+            let elapsed = Mtime_clock.elapsed () in
+            if Mtime.Span.compare t.time elapsed <= 0 then begin
               if Atomic.compare_and_set timeouts ts_old ts then t.action ();
-              wakeup_loop ()
+              loop ()
             end
+            else
+              Mtime.Span.to_float_ns (Mtime.Span.abs_diff t.time elapsed)
+              *. (1. /. 1_000_000_000.)
       in
-      wakeup_loop ();
-      match Q.min (Atomic.get timeouts) with
-      | None -> timeout_thread (-1.0)
-      | Some (_, t) ->
-          timeout_thread (Float.max 0.0 (t.time -. Unix.gettimeofday ()))
+      timeout_thread (loop ())
     end
   in
-  let tid = Thread.create timeout_thread (-1.0) in
+  let timeout_thread () =
+    (match timeout_thread (-1.0) with
+    | () -> ()
+    | exception exn -> error := Some exn);
+    Unix.close reading;
+    Unix.close writing
+  in
+  let tid = Thread.create timeout_thread () in
   let stop () =
     running := false;
     wakeup ();
-    Thread.join tid
+    Thread.join tid;
+    check ()
   in
   let set_timeoutf seconds action =
-    let time = Unix.gettimeofday () +. seconds in
-    let e' = Entry.{ time; action } in
-    let id = next_id () in
-    let rec insert_loop () =
-      let ts = Atomic.get timeouts in
-      let ts' = Q.add id e' ts in
-      if not (Atomic.compare_and_set timeouts ts ts') then insert_loop ()
-      else match Q.min ts' with Some (id', _) -> id = id' | None -> false
-    in
-    if insert_loop () then wakeup ();
-    let rec cancel () =
-      let ts = Atomic.get timeouts in
-      let ts' = Q.remove id ts in
-      if not (Atomic.compare_and_set timeouts ts ts') then cancel ()
-    in
-    cancel
+    match Mtime.Span.of_float_ns (seconds *. 1_000_000_000.) with
+    | None ->
+        invalid_arg "timeout should be between 0 to pow(2, 53) nanoseconds"
+    | Some span ->
+        check ();
+        let time = Mtime.Span.add (Mtime_clock.elapsed ()) span in
+        let e' = Entry.{ time; action } in
+        let id = next_id () in
+        let rec insert_loop () =
+          let ts = Atomic.get timeouts in
+          let ts' = Q.add id e' ts in
+          if not (Atomic.compare_and_set timeouts ts ts') then insert_loop ()
+          else match Q.min ts' with Some (id', _) -> id = id' | None -> false
+        in
+        if insert_loop () then wakeup ();
+        let rec cancel () =
+          let ts = Atomic.get timeouts in
+          let ts' = Q.remove id ts in
+          if not (Atomic.compare_and_set timeouts ts ts') then cancel ()
+        in
+        cancel
   in
   Domain.at_exit stop;
   set_timeoutf
@@ -135,8 +150,6 @@ let () =
         set_timeoutf seconds action
 
 (* *)
-
-type cancel = unit -> unit
 
 let set_timeoutf seconds action = Domain.DLS.get key seconds action
 

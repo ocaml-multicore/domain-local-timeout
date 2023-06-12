@@ -1,21 +1,28 @@
 (** {1 Interface for timeouts} *)
 
-type cancel = private unit -> unit
-(** Private type alias for [unit -> unit] to prevent spurious warnings. *)
-
-val set_timeoutf : float -> (unit -> unit) -> cancel
+val set_timeoutf : float -> (unit -> unit) -> unit -> unit
 (** [let cancel = set_timeoutf seconds action] registers the [action] to be
     called after the specified time period in [seconds] has passed.  The return
-    value [cancel] is an idempotent and domain safe action that can be called
-    as [(cancel :> unit -> unit) ()] to cancel the timeout.
+    value [cancel] is an idempotent and domain safe action that can, and almost
+    always should, be arranged to be called to cancel the timeout in case the
+    timeout is no longer needed.
 
     {b NOTE}: The [action] must not raise exceptions or perform effects, should
     not block, and should usually just perform some minimal side-effect to
-    e.g. unblock a fiber to do the work.
+    e.g. unblock a fiber to do the work.  With the default implementation, in
+    case an [action] raises an exception, the timeout mechanism is disabled and
+    subsequent [set_timeoutf] calls will raise the exception and the domain will
+    also raise the exception at exit.
 
     {b WARNING}: It is allowed for the given [action] to be called e.g. from
     another thread outside of the scheduler from which [set_timeoutf] was
-    called. *)
+    called.
+
+    {b NOTE}: Out of bounds values for [seconds] may be rejected by raising an
+    [Invalid_argument] exception.
+
+    {b NOTE}: Implementations should schedule timeouts using a monotonic
+    clock. *)
 
 (** {1 Interface for schedulers} *)
 

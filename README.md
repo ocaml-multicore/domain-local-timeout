@@ -5,6 +5,9 @@
 This is an experimental library to provide a scheduler independent timeout
 mechanism.
 
+> **NOTE**: This is a low level mechanism intended for writing higher level
+> libraries that need to be able to have scheduler friendly timeouts.
+
 ## Example
 
 First we require some libraries we are using:
@@ -23,10 +26,14 @@ sleep:
     let cancel = Domain_local_timeout.set_timeoutf seconds t.release in
     try t.await ()
     with exn ->
-      (cancel :> unit -> unit) ();
+      cancel ();
       raise exn
 val sleepf : float -> unit = <fun>
 ```
+
+Note that the above is careful to call `cancel` in case `await` raises an
+exception. That could happen when the fiber on which `sleepf` was called is
+canceled, in which case it makes sense to cancel the timeout.
 
 To actually use domain-local-timeout we need an implementation. There is a
 default implementation that uses the `Stdlib.Thread` and `Stdlib.Unix` modules,
@@ -51,12 +58,15 @@ and tell domain-local-await that it can use those system libraries:
 Now we are ready to try setting timeouts:
 
 ```ocaml
-# let _ =
+# let cancel =
     Domain_local_timeout.set_timeoutf 0.1 @@ fun () ->
     Printf.printf "world!\n%!"
   in
   Printf.printf "Hello, %!";
-  sleepf 0.2
+  try sleepf 0.2
+  with exn ->
+    cancel ();
+    raise exn
 Hello, world!
 - : unit = ()
 ```
