@@ -47,3 +47,40 @@ val set_system : (module Thread) -> (module Unix) -> unit
     {b NOTE}: The default {!set_timeoutf} may not always be needed.  It is
     possible for schedulers to use {!using} to provide an implementation
     tailored for the scheduler. *)
+
+(** {2 Per thread configuration} *)
+
+val per_thread : (module Thread) -> unit
+(** [per_thread (module Thread)] configures the current domain to store and
+    select the timeout mechanism per systhread.  This can be called at most once
+    per domain before any calls to {!set_timeoutf}.
+
+    The reason why this is an opt-in feature is that this allows domain local
+    timeout to be implemented without depending on [Thread] which also depends
+    on [Unix].
+
+    Usage:
+
+    {[
+      Domain.spawn @@ fun () ->
+        Domain_local_timeout.per_thread (module Thread);
+
+        (* ... *)
+
+        ()
+        |> Thread.create (fun () ->
+           Domain_local_timeout.using
+             ~set_timeoutf:set_timeoutf_for_scheduler_a
+             ~while_running:scheduler_a);
+
+        ()
+        |> Thread.create (fun () ->
+           Domain_local_timeout.using
+             ~set_timeoutf:set_timeoutf_for_scheduler_b
+             ~while_running:scheduler_b);
+
+        (* ... *)
+    ]}
+
+    {b NOTE}: It is not necessary to use per systhread configuration on a domain
+    unless you want different systhreads to use different schedulers. *)
