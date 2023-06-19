@@ -8,7 +8,7 @@ homepage: "https://github.com/ocaml-multicore/domain-local-timeout"
 bug-reports: "https://github.com/ocaml-multicore/domain-local-timeout/issues"
 depends: [
   "dune" {>= "3.3"}
-  "ocaml" {>= "5.0"}
+  "ocaml" {>= "4.12.0"}
   "psq" {>= "0.2.1"}
   "mtime" {>= "2.0.0"}
   "thread-table" {>= "0.1.0"}

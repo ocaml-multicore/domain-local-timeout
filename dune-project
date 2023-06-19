@@ -9,7 +9,7 @@
 (package (name domain-local-timeout)
  (synopsis "A scheduler independent timeout mechanism")
  (depends
-  (ocaml (>= 5.0))
+  (ocaml (>= 4.12.0))
   (psq (>= 0.2.1))
   (mtime (>= 2.0.0))
   (thread-table (>= 0.1.0))

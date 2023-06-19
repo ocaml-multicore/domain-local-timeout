@@ -44,29 +44,30 @@ let test_two_timeouts () =
     ~expected:"Hello, world!" ~actual:!result
 
 let test_per_thread () =
-  let domain =
-    Domain.spawn @@ fun () ->
-    Domain_local_timeout.per_thread (module Thread);
-    let threads =
-      Array.init 10 @@ fun i ->
-      ()
-      |> Thread.create @@ fun () ->
-         if i land 1 == 0 then
-           Domain_local_timeout.using
-             ~set_timeoutf:(fun _seconds action ->
-               action ();
-               Fun.id)
-             ~while_running:(fun () -> sleepf 10.0)
-         else sleepf 0.1
-    in
-    Array.iter Thread.join threads
+  Domain_local_timeout.per_thread (module Thread);
+  let threads =
+    Array.init 10 @@ fun i ->
+    ()
+    |> Thread.create @@ fun () ->
+       if i land 1 == 0 then
+         Domain_local_timeout.using
+           ~set_timeoutf:(fun _seconds action ->
+             action ();
+             Fun.id)
+           ~while_running:(fun () -> sleepf 10.0)
+       else sleepf 0.1
   in
-  Domain.join domain
+  Array.iter Thread.join threads
 
 let () =
-  Alcotest.run "Domain_local_await"
-    [
-      ("action raises", [ Alcotest.test_case "" `Quick test_action_raises ]);
-      ("two timeouts", [ Alcotest.test_case "" `Quick test_two_timeouts ]);
-      ("per thread", [ Alcotest.test_case "" `Quick test_per_thread ]);
-    ]
+  [
+    (if Domain.is_real then
+       [
+         ("action raises", [ Alcotest.test_case "" `Quick test_action_raises ]);
+       ]
+     else []);
+    [ ("two timeouts", [ Alcotest.test_case "" `Quick test_two_timeouts ]) ];
+    [ ("per thread", [ Alcotest.test_case "" `Quick test_per_thread ]) ];
+  ]
+  |> List.concat
+  |> Alcotest.run "Domain_local_timeout"
