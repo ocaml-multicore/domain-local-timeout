@@ -13,6 +13,7 @@ mechanism.
 First we require some libraries we are using:
 
 ```ocaml
+# #thread
 # #require "domain-local-timeout"
 # #require "domain-local-await"
 ```
@@ -41,14 +42,8 @@ but it is also possible to implement the facility in other ways and it is
 recommended for schedulers to provide their own optimized implementations. Both
 of those system modules are optional and are not provided on all platforms. For
 these reasons domain-local-timeout does not directly depend on those libraries.
-To use the default implementation, we need to require those libraries
-
-```ocaml
-# #require "unix"
-# #thread
-```
-
-and tell domain-local-await that it can use those system libraries:
+To use the default implementation, we need to require those libraries and tell
+domain-local-await that it can use those system libraries:
 
 ```ocaml
 # Domain_local_timeout.set_system (module Thread) (module Unix)
