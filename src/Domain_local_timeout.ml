@@ -151,28 +151,39 @@ let try_system = ref unimplemented
 let default seconds action = !try_system seconds action
 let key = Domain.DLS.new_key @@ fun () -> Per_domain { set_timeoutf = default }
 
+(* Below we use [@poll error] to ensure that there are no safe-points where
+   thread switches might occur during critical section. *)
+
+let[@poll error] update_set_timeoutf_atomically state set_timeoutf =
+  match state with
+  | Per_domain r ->
+      let current = r.set_timeoutf in
+      if current == default then begin
+        r.set_timeoutf <- set_timeoutf;
+        set_timeoutf
+      end
+      else current
+  | Per_thread r ->
+      let current = r.set_timeoutf in
+      if current == default then begin
+        r.set_timeoutf <- set_timeoutf;
+        set_timeoutf
+      end
+      else current
+
 let () =
   try_system :=
     fun seconds action ->
       if not (has_system ()) then
         failwith "Domain_local_timeout.set_timeoutf not implemented"
       else
-        let stop, set_timeoutf = system_on_current_domain () in
-        match Domain.DLS.get key with
-        | Per_domain r ->
-            if r.set_timeoutf == default then begin
-              r.set_timeoutf <- set_timeoutf;
-              Domain.at_exit stop
-            end
-            else stop ();
-            r.set_timeoutf seconds action
-        | Per_thread r ->
-            if r.set_timeoutf == default then begin
-              r.set_timeoutf <- set_timeoutf;
-              Domain.at_exit stop
-            end
-            else stop ();
-            r.set_timeoutf seconds action
+        let stop, set_timeoutf_new = system_on_current_domain () in
+        let set_timeoutf =
+          update_set_timeoutf_atomically (Domain.DLS.get key) set_timeoutf_new
+        in
+        if set_timeoutf != set_timeoutf_new then stop ()
+        else Domain.at_exit stop;
+        set_timeoutf seconds action
 
 (* *)
 
@@ -188,9 +199,10 @@ let set_timeoutf seconds action =
 
 let using ~set_timeoutf ~while_running =
   match Domain.DLS.get key with
-  | Per_domain _ as previous ->
-      Domain.DLS.set key (Per_domain { set_timeoutf });
-      Fun.protect while_running ~finally:(fun () -> Domain.DLS.set key previous)
+  | Per_domain r ->
+      let previous = r.set_timeoutf in
+      r.set_timeoutf <- set_timeoutf;
+      Fun.protect while_running ~finally:(fun () -> r.set_timeoutf <- previous)
   | Per_thread r ->
       let id = r.id (r.self ()) in
       Thread_table.add r.id_to_set_timeoutf id set_timeoutf;
