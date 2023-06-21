@@ -5,34 +5,12 @@ include Unix_intf
 
 let unimplemented _ = failwith "unimplemented"
 
-let system_unimplemented =
-  let module Thread = struct
-    type t
+type system = Unset | Set of (module Thread) * (module Unix)
 
-    let self = unimplemented
-    let id = unimplemented
-    let create = unimplemented
-    let join = unimplemented
-  end in
-  ( ((module Thread) : (module Thread)),
-    let module Unix = struct
-      type file_descr
-
-      let close = unimplemented
-      let read = unimplemented
-      let write = unimplemented
-      let pipe ?cloexec:_ = unimplemented
-      let select = unimplemented
-    end in
-    ((module Unix) : (module Unix)) )
-
-let system_global = Atomic.make system_unimplemented
+let system_global = Atomic.make Unset
 
 let set_system thread unix =
-  Atomic.compare_and_set system_global system_unimplemented (thread, unix)
-  |> ignore
-
-let has_system () = Atomic.get system_global != system_unimplemented
+  Atomic.compare_and_set system_global Unset (Set (thread, unix)) |> ignore
 
 (* *)
 
@@ -44,10 +22,8 @@ end
 
 module Q = Psq.Make (Int) (Entry)
 
-let system_on_current_domain () =
-  let ((module Thread) : (module Thread)), ((module Unix) : (module Unix)) =
-    Atomic.get system_global
-  in
+let system_on_current_domain ((module Thread) : (module Thread))
+    ((module Unix) : (module Unix)) =
   let error = ref None in
   let check () = match !error with None -> () | Some exn -> raise exn in
   let running = ref true in
@@ -174,16 +150,16 @@ let[@poll error] update_set_timeoutf_atomically state set_timeoutf =
 let () =
   try_system :=
     fun seconds action ->
-      if not (has_system ()) then
-        failwith "Domain_local_timeout.set_timeoutf not implemented"
-      else
-        let stop, set_timeoutf_new = system_on_current_domain () in
-        let set_timeoutf =
-          update_set_timeoutf_atomically (Domain.DLS.get key) set_timeoutf_new
-        in
-        if set_timeoutf != set_timeoutf_new then stop ()
-        else Domain.at_exit stop;
-        set_timeoutf seconds action
+      match Atomic.get system_global with
+      | Unset -> failwith "Domain_local_timeout.set_timeoutf not implemented"
+      | Set (thread, unix) ->
+          let stop, set_timeoutf_new = system_on_current_domain thread unix in
+          let set_timeoutf =
+            update_set_timeoutf_atomically (Domain.DLS.get key) set_timeoutf_new
+          in
+          if set_timeoutf != set_timeoutf_new then stop ()
+          else Domain.at_exit stop;
+          set_timeoutf seconds action
 
 (* *)
 
