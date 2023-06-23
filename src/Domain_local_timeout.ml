@@ -1,3 +1,7 @@
+(* NOTE: We use [@poll error] on functions to ensure that there are no
+   safe-points where thread switches might occur during an operation that needs
+   to be atomic with respect to systhread scheduling. *)
+
 include Thread_intf
 include Unix_intf
 
@@ -29,23 +33,35 @@ let system_on_current_domain ((module Thread) : (module Thread))
   let running = ref true in
   let needs_wakeup = ref true in
   let reading, writing = Unix.pipe () in
+  let[@poll error] wakeup_needed_atomically () =
+    !needs_wakeup && !error == None
+    && begin
+         needs_wakeup := false;
+         true
+       end
+  in
   let wakeup () =
-    if !needs_wakeup && !error == None then begin
-      needs_wakeup := false;
+    if wakeup_needed_atomically () then begin
       let n = Unix.write writing (Bytes.create 1) 0 1 in
       assert (n = 1)
     end
   in
   let counter = ref 0 in
-  let next_id () =
+  let[@poll error] next_id_atomically () =
     let id = !counter + 1 in
     counter := id;
     id
   in
   let timeouts = Atomic.make Q.empty in
+  let[@poll error] running_atomically () =
+    !running
+    && begin
+         needs_wakeup := true;
+         true
+       end
+  in
   let rec timeout_thread next =
-    if !running then begin
-      needs_wakeup := true;
+    if running_atomically () then begin
       (match Unix.select [ reading ] [] [] next with
       | [ reading ], _, _ ->
           let n = Unix.read reading (Bytes.create 1) 0 1 in
@@ -90,7 +106,7 @@ let system_on_current_domain ((module Thread) : (module Thread))
         check ();
         let time = Mtime.Span.add (Mtime_clock.elapsed ()) span in
         let e' = Entry.{ time; action } in
-        let id = next_id () in
+        let id = next_id_atomically () in
         let rec insert_loop () =
           let ts = Atomic.get timeouts in
           let ts' = Q.add id e' ts in
@@ -126,9 +142,6 @@ type config =
 let try_system = ref unimplemented
 let default seconds action = !try_system seconds action
 let key = Domain.DLS.new_key @@ fun () -> Per_domain { set_timeoutf = default }
-
-(* Below we use [@poll error] to ensure that there are no safe-points where
-   thread switches might occur during critical section. *)
 
 let[@poll error] update_set_timeoutf_atomically state set_timeoutf =
   match state with
