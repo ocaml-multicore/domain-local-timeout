@@ -36,6 +36,15 @@ Note that the above is careful to call `cancel` in case `await` raises an
 exception. That could happen when the fiber on which `sleepf` was called is
 canceled, in which case it makes sense to cancel the timeout.
 
+Let's try it:
+
+```ocaml
+# sleepf 1.0
+Exception: Failure "Domain_local_timeout.set_timeoutf not implemented".
+```
+
+Oops!
+
 To actually use domain-local-timeout we need an implementation. There is a
 default implementation that uses the `Stdlib.Thread` and `Stdlib.Unix` modules,
 but it is also possible to implement the facility in other ways and it is
