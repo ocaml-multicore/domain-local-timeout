@@ -8,6 +8,13 @@ mechanism.
 > **NOTE**: This is a low level mechanism intended for writing higher level
 > libraries that need to be able to have scheduler friendly timeouts.
 
+## References
+
+DLT is used by the following libraries:
+
+- [kcas](https://github.com/ocaml-multicore/kcas) uses DLT to implement
+  [timeouts](https://github.com/ocaml-multicore/kcas/#timeouts).
+
 ## Example
 
 First we require some libraries we are using:
