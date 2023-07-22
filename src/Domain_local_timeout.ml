@@ -26,8 +26,7 @@ end
 
 module Q = Psq.Make (Int) (Entry)
 
-let system_on_current_domain ((module Thread) : (module Thread))
-    ((module Unix) : (module Unix)) =
+let system_on_current_domain (module Thread : Thread) (module Unix : Unix) =
   let error = ref None in
   let check () = match !error with None -> () | Some exn -> raise exn in
   let running = ref true in
@@ -200,7 +199,7 @@ let using ~set_timeoutf ~while_running =
 
 (* *)
 
-let per_thread ((module Thread) : (module Thread)) =
+let per_thread (module Thread : Thread) =
   match Domain.DLS.get key with
   | Per_thread _ ->
       failwith

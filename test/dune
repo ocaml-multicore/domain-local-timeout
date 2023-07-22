@@ -4,9 +4,13 @@
  (libraries domain-local-timeout domain-local-await threads unix alcotest))
 
 (rule
- (enabled_if (< %{ocaml_version} 5.0.0))
- (action (copy domain_fake.ml domain.ml)))
+ (enabled_if
+  (< %{ocaml_version} 5.0.0))
+ (action
+  (copy domain_fake.ml domain.ml)))
 
 (rule
- (enabled_if (>= %{ocaml_version} 5.0.0))
- (action (copy domain_real.ml domain.ml)))
+ (enabled_if
+  (>= %{ocaml_version} 5.0.0))
+ (action
+  (copy domain_real.ml domain.ml)))
