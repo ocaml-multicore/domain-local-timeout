@@ -61,11 +61,13 @@ let system_on_current_domain (module Thread : Thread) (module Unix : Unix) =
   in
   let rec timeout_thread next =
     if running_atomically () then begin
-      (match Unix.select [ reading ] [] [] next with
-      | [ reading ], _, _ ->
-          let n = Unix.read reading (Bytes.create 1) 0 1 in
-          assert (n = 1)
-      | _, _, _ -> ());
+      begin
+        match Unix.select [ reading ] [] [] next with
+        | [ reading ], _, _ ->
+            let n = Unix.read reading (Bytes.create 1) 0 1 in
+            assert (n = 1)
+        | _, _, _ -> ()
+      end;
       let rec loop () =
         let ts_old = Atomic.get timeouts in
         match Q.pop ts_old with
@@ -84,9 +86,11 @@ let system_on_current_domain (module Thread : Thread) (module Unix : Unix) =
     end
   in
   let timeout_thread () =
-    (match timeout_thread (-1.0) with
-    | () -> ()
-    | exception exn -> error := Some exn);
+    begin
+      match timeout_thread (-1.0) with
+      | () -> ()
+      | exception exn -> error := Some exn
+    end;
     Unix.close reading;
     Unix.close writing
   in
@@ -176,10 +180,11 @@ let () =
 let set_timeoutf seconds action =
   match Domain.DLS.get key with
   | Per_domain r -> r.set_timeoutf seconds action
-  | Per_thread r -> (
+  | Per_thread r -> begin
       match Thread_table.find r.id_to_set_timeoutf (r.id (r.self ())) with
       | set_timeoutf -> set_timeoutf seconds action
-      | exception Not_found -> r.set_timeoutf seconds action)
+      | exception Not_found -> r.set_timeoutf seconds action
+    end
 
 (* *)
 
