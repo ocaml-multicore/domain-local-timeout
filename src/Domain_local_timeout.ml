@@ -124,17 +124,15 @@ let system_on_current_domain (module Thread : Thread) (module Unix : Unix) =
 
 (* *)
 
+type set_timeoutf = float -> (unit -> unit) -> unit -> unit
+
 type config =
-  | Per_domain : {
-      mutable set_timeoutf : float -> (unit -> unit) -> unit -> unit;
-    }
-      -> config
+  | Per_domain : { mutable set_timeoutf : set_timeoutf } -> config
   | Per_thread : {
-      mutable set_timeoutf : float -> (unit -> unit) -> unit -> unit;
+      mutable set_timeoutf : set_timeoutf;
       self : unit -> 'handle;
       id : 'handle -> int;
-      id_to_set_timeoutf :
-        (float -> (unit -> unit) -> unit -> unit) Thread_table.t;
+      id_to_set_timeoutf : set_timeoutf Thread_table.t;
     }
       -> config
 
