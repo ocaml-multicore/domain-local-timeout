@@ -1,6 +1,6 @@
-(* NOTE: We use [@poll error] on functions to ensure that there are no
-   safe-points where thread switches might occur during an operation that needs
-   to be atomic with respect to systhread scheduling. *)
+(* NOTE: We use [@poll error] and [@inline never] on functions to ensure that
+   there are no safe-points where thread switches might occur during an
+   operation that needs to be atomic with respect to systhread scheduling. *)
 
 include Thread_intf
 include Unix_intf
@@ -32,7 +32,7 @@ let system_on_current_domain (module Thread : Thread) (module Unix : Unix) =
   let running = ref true in
   let needs_wakeup = ref true in
   let reading, writing = Unix.pipe () in
-  let[@poll error] wakeup_needed_atomically () =
+  let[@poll error] [@inline never] wakeup_needed_atomically () =
     !needs_wakeup && !error == None
     && begin
          needs_wakeup := false;
@@ -46,13 +46,13 @@ let system_on_current_domain (module Thread : Thread) (module Unix : Unix) =
     end
   in
   let counter = ref 0 in
-  let[@poll error] next_id_atomically () =
+  let[@poll error] [@inline never] next_id_atomically () =
     let id = !counter + 1 in
     counter := id;
     id
   in
   let timeouts = Atomic.make Q.empty in
-  let[@poll error] running_atomically () =
+  let[@poll error] [@inline never] running_atomically () =
     !running
     && begin
          needs_wakeup := true;
@@ -144,7 +144,8 @@ let try_system = ref unimplemented
 let default seconds action = !try_system seconds action
 let key = Domain.DLS.new_key @@ fun () -> Per_domain { set_timeoutf = default }
 
-let[@poll error] update_set_timeoutf_atomically state set_timeoutf =
+let[@poll error] [@inline never] update_set_timeoutf_atomically state
+    set_timeoutf =
   match state with
   | Per_domain r ->
       let current = r.set_timeoutf in
