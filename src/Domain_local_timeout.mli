@@ -1,3 +1,23 @@
+(** A scheduler independent timeout mechanism.
+
+    This is designed as a low level mechanism intended for writing higher level
+    libraries that need to be able to have scheduler friendly timeouts.
+
+    A library that needs timeouts may simply call {!set_timeoutf}.
+
+    To provide an efficient scheduler specific implementation of the mechanism,
+    schedulers may install an implementation by wrapping the scheduler main loop
+    with a call to {!using}.  The implementation is then stored in a domain, and
+    optionally thread, local variable.  The overhead that this imposes on a
+    scheduler should be insignificant.
+
+    An application can then choose to use schedulers that provide the necessary
+    implementation or, for example, use the default implementation by calling
+    {!set_system}.
+
+    The end result is effective interoperability between schedulers and
+    concurrent programming libraries. *)
+
 (** {1 Interface for timeouts} *)
 
 val set_timeoutf : float -> (unit -> unit) -> unit -> unit

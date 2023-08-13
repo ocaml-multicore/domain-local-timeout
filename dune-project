@@ -8,6 +8,7 @@
 (license "ISC")
 (package (name domain-local-timeout)
  (synopsis "A scheduler independent timeout mechanism")
+ (description "A low level mechanism intended for writing higher level libraries that need to be able to have scheduler friendly timeouts.")
  (depends
   (ocaml (>= 4.12.0))
   (psq (>= 0.2.1))
