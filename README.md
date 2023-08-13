@@ -2,17 +2,31 @@
 
 # **domain-local-timeout** &mdash; Scheduler independent timeout
 
-This is an experimental library to provide a scheduler independent timeout
-mechanism.
+A low level mechanism intended for writing higher level libraries that need to
+be able to have scheduler friendly timeouts.
 
-> **NOTE**: This is a low level mechanism intended for writing higher level
-> libraries that need to be able to have scheduler friendly timeouts.
+A library that needs timeouts may simply call
+[`set_timeoutf`](https://ocaml-multicore.github.io/domain-local-timeout/doc/domain-local-timeout/Domain_local_timeout/index.html#val-set_timeoutf).
+
+To provide an efficient scheduler specific implementation of the mechanism,
+schedulers may install an implementation by wrapping the scheduler main loop
+with a call to
+[`using`](https://ocaml-multicore.github.io/domain-local-timeout/doc/domain-local-timeout/Domain_local_timeout/index.html#val-using).
+The implementation is then stored in a domain, and optionally thread, local
+variable. The overhead that this imposes on a scheduler should be insignificant.
+
+An application can then choose to use schedulers that provide the necessary
+implementation or, for example, use the default implementation by calling
+[`set_system`](https://ocaml-multicore.github.io/domain-local-timeout/doc/domain-local-timeout/Domain_local_timeout/index.html#val-set_system).
+
+The end result is effective interoperability between schedulers and concurrent
+programming libraries.
 
 ## References
 
 DLT is used by the following libraries:
 
-- [kcas](https://github.com/ocaml-multicore/kcas) uses DLT to implement
+- [Kcas](https://ocaml-multicore.github.io/kcas/) uses DLT to implement
   [timeouts](https://github.com/ocaml-multicore/kcas/#timeouts).
 
 ## Example
