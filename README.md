@@ -73,7 +73,7 @@ recommended for schedulers to provide their own optimized implementations. Both
 of those system modules are optional and are not provided on all platforms. For
 these reasons domain-local-timeout does not directly depend on those libraries.
 To use the default implementation, we need to require those libraries and tell
-domain-local-await that it can use those system libraries:
+domain-local-timeout that it can use those system libraries:
 
 ```ocaml
 # Domain_local_timeout.set_system (module Thread) (module Unix)
