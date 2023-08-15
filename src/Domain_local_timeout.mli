@@ -23,9 +23,9 @@
 val set_timeoutf : float -> (unit -> unit) -> unit -> unit
 (** [let cancel = set_timeoutf seconds action] registers the [action] to be
     called after the specified time period in [seconds] has passed.  The return
-    value [cancel] is an idempotent and domain safe action that can, and almost
-    always should, be arranged to be called to cancel the timeout in case the
-    timeout is no longer needed.
+    value [cancel] is an idempotent and parallelism-safe action that can, and
+    almost always should, be arranged to be called to cancel the timeout in case
+    the timeout is no longer needed.
 
     {b NOTE}: The [action] must not raise exceptions or perform effects, should
     not block, and should usually just perform some minimal side-effect to
