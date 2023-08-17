@@ -6,6 +6,7 @@
 (maintainers "Vesa Karvonen <vesa.a.j.k@gmail.com>")
 (homepage "https://github.com/ocaml-multicore/domain-local-timeout")
 (license "ISC")
+(implicit_transitive_deps false)
 (package (name domain-local-timeout)
  (synopsis "A scheduler independent timeout mechanism")
  (description "A low level mechanism intended for writing higher level libraries that need to be able to have scheduler friendly timeouts.")
