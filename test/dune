@@ -1,7 +1,12 @@
 (test
  (name test)
  (modules test domain)
- (libraries domain-local-timeout domain-local-await threads unix alcotest))
+ (libraries
+  domain-local-timeout
+  domain-local-await
+  threads.posix
+  unix
+  alcotest))
 
 (rule
  (enabled_if
