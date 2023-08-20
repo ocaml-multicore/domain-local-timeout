@@ -15,7 +15,7 @@
   (psq (>= 0.2.1))
   (mtime (>= 2.0.0))
   (thread-table (>= 1.0.0))
-  (mdx (and (>= 1.10.0) :with-test))
   (domain-local-await (and (>= 1.0.0) :with-test))
+  (mdx (and (>= 2.3.0) :with-test))
   (alcotest (and (>= 1.7.0) :with-test))))
 (using mdx 0.2)
